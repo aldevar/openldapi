@@ -10,26 +10,71 @@ app = Flask(__name__)
 
 #Endpoint returning every attributes for asked username
 @app.route('/api/v1/user/<username>/', methods=['GET'])
-def api_getuser(username):
-  search_filter = "{}={}".format(getConfig.user_attr,username)
-  result = ldapConn(getConfig.user_ou,search_filter)
-  for dn,entry in result:
-    for key,value in entry.items():
-      entry[key] = ",".join(value)
-  return jsonify(result[0])
+def api_getUser(username):
+    search_filter = "{}={}".format(getConfig.user_attr,username)
+    result = ldapConn(getConfig.user_ou,search_filter)
+    for dn,entry in result:
+        for key,value in entry.items():
+            entry[key] = ",".join(value)
+    return jsonify(result[0])
 
 
 #Endpoint returning all the users
 ## TODO : Paginate
 ## Result is to big to be shown in a single request
 @app.route('/api/v1/users/all/', methods=['GET'])
-def api_getalluser():
-  search_filter = "(objectclass=*)"
-  result = ldapConn(getConfig.user_ou,search_filter,['uid'])
-  for dn,entry in result:
-    for key,value in entry.items():
-      entry[key] = ",".join(value)
-  return jsonify(result[1:])
+def api_getAllUser():
+    search_filter = "(objectclass=*)"
+    result = ldapConn(getConfig.user_ou,search_filter,[getConfig.user_attr])
+    for dn,entry in result:
+        for key,value in entry.items():
+            entry[key] = ",".join(value)
+    return jsonify(result[1:])
+
+#Endpoint returning every attributes for asked group
+@app.route('/api/v1/group/<groupname>/', methods=['GET'])
+def api_getGroup(groupname):
+    search_filter = "{}={}".format(getConfig.group_attr,groupname)
+    result = ldapConn(getConfig.group_ou,search_filter)
+    for dn,entry in result:
+        for key,value in entry.items():
+            entry[key] = ",".join(value)
+    return jsonify(result[0])
+
+#Endpoint returning all the groups
+@app.route('/api/v1/groups/all/', methods=['GET'])
+def api_getAllGroups():
+    search_filter = "(objectclass=*)"
+    result = ldapConn(getConfig.group_ou,search_filter,[getConfig.group_attr])
+    for dn,entry in result:
+        for key,value in entry.items():
+            entry[key] = ",".join(value)
+    return jsonify(result[1:])
+
+#Endoint returning list of users in group
+@app.route('/api/v1/members/<groupname>/', methods=['GET'])
+def api_getGroupMembers(groupname):
+    search_filter = "(objectclass=*)"
+    search_ou = "{}={},{}".format(
+                           getConfig.group_attr,
+                           groupname,
+                           getConfig.group_ou)
+    result = ldapConn(search_ou,search_filter,[getConfig.member_attr])
+    return jsonify(result[0][1])
+
+#Endpoint returning list of groups for a user
+@app.route('/api/v1/memberof/<username>/', methods=['GET'])
+def api_getMemberOf(username):
+    search_filter = "(&({}=*)({}={}))".format(
+                                       getConfig.group_attr,
+                                       getConfig.member_attr,
+                                       username)
+    result = ldapConn(getConfig.base_dn,search_filter)
+    output = []
+    for dn,entry in result:
+    #    for key,value in entry.items():
+        output.append(entry[getConfig.group_attr][0])
+    return jsonify("memberof",output)
 
 
 if __name__ == '__main__':
