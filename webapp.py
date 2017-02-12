@@ -29,7 +29,7 @@ def api_getUser(username):
 # TODO : Add first, next, previous, last page in header
 # TODO : Partial Content Header
 @app.route('/api/v1/users/all/', methods=['GET'])
-def api_getAllUser():
+def api_getAllUsers():
     search_filter = "(objectclass=*)"
     result = ldapConn(getConfig.user_ou,search_filter,[getConfig.user_attr])
     sorted_result = sorted(result, key=lambda x: x[1])
@@ -67,20 +67,32 @@ def api_getGroup(groupname):
     return jsonify(dictresult)
 
 #Endpoint returning all the groups
+# Pagination included
 @app.route('/api/v1/groups/all/', methods=['GET'])
 def api_getAllGroups():
     search_filter = "(objectclass=*)"
     result = ldapConn(getConfig.group_ou,search_filter,[getConfig.group_attr])
     sorted_result = sorted(result, key=lambda x: x[1])
     dictresult = {}
-    for elem in result:
+    for elem in sorted_result:
+        print elem
         entry = {}
         if elem[0].startswith("cn"):
             dn = elem[0]
             for key,value in elem[1].items():
                 entry[key] = value[0]
             dictresult[dn] = entry
-    return jsonify(dictresult)
+        total_range = len(dictresult.keys())
+        range_start = request.args.get('offset', 1)
+        range_start = int(range_start) - 1
+        range_limit = request.args.get('limit', total_range)
+        range_end = range_start + int(range_limit)
+    # Case Sensitive sorted results
+        req_range = {k: dictresult[k] for k in
+                     sorted(dictresult.keys())[range_start:range_end]}
+ 
+
+    return jsonify(req_range)
 
 #Endoint returning list of users in group
 @app.route('/api/v1/members/<groupname>/', methods=['GET'])
