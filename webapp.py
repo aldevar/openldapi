@@ -2,6 +2,7 @@
 
 from flask import Flask, jsonify, request
 import ldap
+import ldap.modlist as modlist
 import json
 import getConfig
 from ldapConn import ldapConn
@@ -120,6 +121,75 @@ def api_getMemberOf(username):
     dictresult = {}
     dictresult["memberof"] = output
     return jsonify(dictresult)
+
+#Endpoint adding a new user
+# Request should provide a json dictionnary
+# groups key is not mandatory
+# {
+#   uid: username,
+#   givenName: givenname,
+#   sn: surname,
+#   o: organisation,
+#   mail: email@mail.com,
+#   telephoneNumber: 0555555555,
+#   groups: [group1,group2,group3]
+# }
+@app.route('/api/v1/add/user/', methods=['POST'])
+def api_createuser():
+    if not request.json or \
+       not 'uid' in request.json or \
+       not 'givenName' in request.json or \
+       not 'sn' in request.json or \
+       not 'o' in request.json or\
+       not 'mail' in request.json:
+        abort(400)
+    attrs = {}
+    attrs['uid'] = str(request.json['uid'])
+    attrs['givenName'] = str(request.json['givenName'])
+    attrs['sn'] = str(request.json['sn'])
+    attrs['cn'] = "{} {}".format(attrs['givenName'],attrs['sn'])
+    attrs['o'] = str(request.json['o'])
+    attrs['mail'] = str(request.json['mail'])
+    attrs['telephoneNumber'] = str(request.json['telephoneNumber'])
+    if 'personalTitle' in request.json:
+        attrs['personalTitle'] = str(request.json['personalTitle'])
+    attrs['objectClass'] = ['top',
+                   'person',
+                   'inetOrgPerson',
+                   'pilotPerson',
+                   'organizationalPerson',
+                   'OpenLDAPperson',
+                   'SIBObject']
+    dn = 'uid={},{}'.format(attrs['uid'],getConfig.user_ou)
+    ldif = modlist.addModlist(attrs)
+    try:
+        connect = ldap.initialize('ldap://{0}:{1}'.format(getConfig.ldap_server,
+                                                    getConfig.ldap_port))
+        connect.bind_s(getConfig.ldapcred, getConfig.ldappass)
+        result = connect.add_s(dn,ldif)
+    except ldap.LDAPError as e:
+        connect.unbind_s()
+        return (e, 500)
+    return api_getUser(attrs['uid'])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
