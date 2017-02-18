@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, abort, make_response
 import ldap
 import ldap.modlist as modlist
 import json
@@ -169,7 +169,7 @@ def api_createuser():
         result = connect.add_s(dn,ldif)
     except ldap.LDAPError as e:
         connect.unbind_s()
-        return (e, 500)
+        return make_response(jsonify({"Erreur LDAP": e.message['desc']}), 400)
     return api_getUser(attrs['uid'])
 
 
