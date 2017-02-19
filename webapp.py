@@ -9,6 +9,20 @@ from ldapConn import ldapConn
 
 app = Flask(__name__)
 
+def getNextgidNumber():
+    ''' return the next available gidNumber
+    for a new group to be created'''
+    result = api_getAllGroups('gidNumber')
+    gidlist = []
+    dictresult = json.loads(result.get_data())
+    for gidtuple in dictresult.items():
+        if len(gidtuple[1]) != 0:
+            print gidtuple[1]
+            gidlist.append(int(gidtuple[1]['gidNumber']))
+    return max(gidlist) + 1
+
+
+
 #Endpoint returning every attributes for asked username
 @app.route('/api/v1/user/<username>/', methods=['GET'])
 def api_getUser(username):
@@ -70,9 +84,11 @@ def api_getGroup(groupname):
 #Endpoint returning all the groups
 # Pagination included
 @app.route('/api/v1/groups/all/', methods=['GET'])
-def api_getAllGroups():
+def api_getAllGroups(attr=getConfig.group_attr):
     search_filter = "(objectclass=*)"
-    result = ldapConn(getConfig.group_ou,search_filter,[getConfig.group_attr])
+    if 'attr' in request.args:
+        attr = str(request.args.get('attr'))
+    result = ldapConn(getConfig.group_ou,search_filter,[attr])
     sorted_result = sorted(result, key=lambda x: x[1])
     dictresult = {}
     for elem in sorted_result:
@@ -135,7 +151,7 @@ def api_getMemberOf(username):
 #   groups: [group1,group2,group3]
 # }
 @app.route('/api/v1/add/user/', methods=['POST'])
-def api_createuser():
+def api_createUser():
     if not request.json or \
        not 'uid' in request.json or \
        not 'givenName' in request.json or \
@@ -170,26 +186,38 @@ def api_createuser():
     except ldap.LDAPError as e:
         connect.unbind_s()
         return make_response(jsonify({"Erreur LDAP": e.message['desc']}), 400)
+    connect.unbind_s()
     return api_getUser(attrs['uid'])
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+@app.route('/api/v1/add/group/', methods=['POST'])
+def api_createGroup():
+    if not request.json or \
+       not 'cn' in request.json:
+        abort(400)
+    attrs = {}
+    attrs['cn'] = str(request.json['cn'])
+    #attrs['displayName'] = attrs['cn']
+    if 'description' in request.json:
+        attrs['description'] = str(request.json['description'])
+    attrs['objectClass'] = ['top', 'posixGroup']
+    if 'gidNumber' in request.json:
+        attrs['gidNumber'] = str(request.json['gidNumber'])
+    else:
+        attrs['gidNumber'] = str(getNextgidNumber())
+    dn = 'cn={},{}'.format(attrs['cn'],getConfig.group_ou)
+    ldif = modlist.addModlist(attrs)
+    try:
+        connect = ldap.initialize('ldap://{0}:{1}'.format(getConfig.ldap_server,
+                                                          getConfig.ldap_port))
+        connect.bind_s(getConfig.ldapcred,getConfig.ldappass)
+        result = connect.add_s(dn,ldif)
+    except ldap.LDAPError as e:
+        connect.unbind_s()
+        return make_response(jsonify({"Erreur LDAP": e.message['desc']}), 400)
+    connect.unbind_s()
+    return api_getGroup(attrs['cn'])
+                                                
 
 if __name__ == '__main__':
     app.run(debug=True)
