@@ -2,21 +2,24 @@
 
 import ConfigParser
 
-#Get options from config file
+# Get options from config file
 config = ConfigParser.ConfigParser()
 config.read("/home/devarieuxa/.config/apildap.conf")
+
+
 def ConfigSectionMap(section):
-  dictopt = {}
-  options = config.options(section)
-  for option in options:
-    try:
-      dictopt[option] = config.get(section, option)
-      if dictopt[option] == -1:
-        DebugPrint("skip: {}".format(option))
-    except:
-      print("exception on {}".format(option))
-      dictopt[option] = None
-  return dictopt
+    dictopt = {}
+    options = config.options(section)
+    for option in options:
+        try:
+            dictopt[option] = config.get(section, option)
+            if dictopt[option] == -1:
+                print("skip: {}".format(option))
+        except:
+            print("exception on {}".format(option))
+    dictopt[option] = None
+    return dictopt
+
 
 ldap_server = ConfigSectionMap('LdapServer')['server']
 ldap_port = ConfigSectionMap('LdapServer')['port']

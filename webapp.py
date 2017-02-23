@@ -9,6 +9,7 @@ from ldapConn import ldapConn
 
 app = Flask(__name__)
 
+
 def getNextgidNumber():
     ''' return the next available gidNumber
     for a new group to be created'''
@@ -21,21 +22,23 @@ def getNextgidNumber():
             gidlist.append(int(gidtuple[1]['gidNumber']))
     return max(gidlist) + 1
 
+
 @app.route('/api/v1/user/<username>/', methods=['GET'])
 def api_getUser(username):
     '''
     Endpoint returning every attributes for asked username
     '''
-    search_filter = "{}={}".format(getConfig.user_attr,username)
-    result = ldapConn(getConfig.user_ou,search_filter)
+    search_filter = "{}={}".format(getConfig.user_attr, username)
+    result = ldapConn(getConfig.user_ou, search_filter)
     if not result:
-        return make_response(jsonify({username : "N'existe pas"}), 400)
-    for dn,entry in result:
-        for key,value in entry.items():
+        return make_response(jsonify({username: "N'existe pas"}), 400)
+    for dn, entry in result:
+        for key, value in entry.items():
             entry[key] = ",".join(value)
     dictresult = {}
     dictresult[result[0][0]] = result[0][1]
     return jsonify(dictresult)
+
 
 @app.route('/api/v1/users/all/', methods=['GET'])
 def api_getAllUsers():
@@ -49,14 +52,14 @@ def api_getAllUsers():
     TODO : Partial Content Header
     '''
     search_filter = "(objectclass=*)"
-    result = ldapConn(getConfig.user_ou,search_filter,[getConfig.user_attr])
+    result = ldapConn(getConfig.user_ou, search_filter, [getConfig.user_attr])
     sorted_result = sorted(result, key=lambda x: x[1])
     dictresult = {}
-    #for elem in result[1:]:
+#    for elem in result[1:]:
     for elem in sorted_result[1:]:
         entry = {}
         dn = elem[0]
-        for key,value in elem[1].items():
+        for key, value in elem[1].items():
             entry[key] = value[0]
         dictresult[dn] = entry
     total_range = len(dictresult.keys())
@@ -67,26 +70,29 @@ def api_getAllUsers():
     # Case Sensitive sorted results
     req_range = {k: dictresult[k] for k in
                  sorted(dictresult.keys())[range_start:range_end]}
-                 # this sorted code tries to sort case insensitive
-                 # Not working well
-                 #sorted(dictresult.keys(), key=lambda y: y.lower())[range_start:range_end]}
+#                  this sorted code tries to sort case insensitive
+#                  Not working well
+#                 sorted(dictresult.keys(),
+#                        key=lambda y: y.lower())[range_start:range_end]}
     return jsonify(req_range)
+
 
 @app.route('/api/v1/group/<groupname>/', methods=['GET'])
 def api_getGroup(groupname):
     '''
     Endpoint returning every attributes for asked group
     '''
-    search_filter = "{}={}".format(getConfig.group_attr,groupname)
-    result = ldapConn(getConfig.group_ou,search_filter)
+    search_filter = "{}={}".format(getConfig.group_attr, groupname)
+    result = ldapConn(getConfig.group_ou, search_filter)
     if not result:
-        return make_response(jsonify({groupname : "N'existe pas"}), 400)
-    for dn,entry in result:
-        for key,value in entry.items():
+        return make_response(jsonify({groupname: "N'existe pas"}), 400)
+    for dn, entry in result:
+        for key, value in entry.items():
             entry[key] = ",".join(value)
     dictresult = {}
     dictresult[result[0][0]] = result[0][1]
     return jsonify(dictresult)
+
 
 @app.route('/api/v1/groups/all/', methods=['GET'])
 def api_getAllGroups(attr=getConfig.group_attr):
@@ -97,7 +103,7 @@ def api_getAllGroups(attr=getConfig.group_attr):
     search_filter = "(objectclass=*)"
     if 'attr' in request.args:
         attr = str(request.args.get('attr'))
-    result = ldapConn(getConfig.group_ou,search_filter,[attr])
+    result = ldapConn(getConfig.group_ou, search_filter, [attr])
     sorted_result = sorted(result, key=lambda x: x[1])
     dictresult = {}
     for elem in sorted_result:
@@ -105,7 +111,7 @@ def api_getAllGroups(attr=getConfig.group_attr):
         entry = {}
         if elem[0].startswith("cn"):
             dn = elem[0]
-            for key,value in elem[1].items():
+            for key, value in elem[1].items():
                 entry[key] = value[0]
             dictresult[dn] = entry
         total_range = len(dictresult.keys())
@@ -116,9 +122,8 @@ def api_getAllGroups(attr=getConfig.group_attr):
     # Case Sensitive sorted results
         req_range = {k: dictresult[k] for k in
                      sorted(dictresult.keys())[range_start:range_end]}
- 
-
     return jsonify(req_range)
+
 
 @app.route('/api/v1/members/<groupname>/', methods=['GET'])
 def api_getGroupMembers(groupname):
@@ -130,8 +135,9 @@ def api_getGroupMembers(groupname):
                            getConfig.group_attr,
                            groupname,
                            getConfig.group_ou)
-    result = ldapConn(search_ou,search_filter,[getConfig.member_attr])
+    result = ldapConn(search_ou, search_filter, [getConfig.member_attr])
     return jsonify(result[0][1])
+
 
 @app.route('/api/v1/memberof/<username>/', methods=['GET'])
 def api_getMemberOf(username):
@@ -142,14 +148,14 @@ def api_getMemberOf(username):
                                        getConfig.group_attr,
                                        getConfig.member_attr,
                                        username)
-    result = ldapConn(getConfig.base_dn,search_filter)
+    result = ldapConn(getConfig.base_dn, search_filter)
     output = []
-    for dn,entry in result:
-    #    for key,value in entry.items():
+    for dn, entry in result:
         output.append(entry[getConfig.group_attr][0])
     dictresult = {}
     dictresult["memberof"] = output
     return jsonify(dictresult)
+
 
 @app.route('/api/v1/add/user/', methods=['POST'])
 def api_createUser():
@@ -168,50 +174,52 @@ def api_createUser():
     }
     '''
     if not request.json or \
-       not 'uid' in request.json or \
-       not 'givenName' in request.json or \
-       not 'sn' in request.json or \
-       not 'o' in request.json or\
-       not 'mail' in request.json:
+       'uid' not in request.json or \
+       'givenName' not in request.json or \
+       'sn' not in request.json or \
+       'o' not in request.json or\
+       'mail' not in request.json:
         abort(400)
     attrs = {}
     attrs['uid'] = str(request.json['uid'])
     attrs['givenName'] = str(request.json['givenName'])
     attrs['sn'] = str(request.json['sn'])
-    attrs['cn'] = "{} {}".format(attrs['givenName'],attrs['sn'])
+    attrs['cn'] = "{} {}".format(attrs['givenName'], attrs['sn'])
     attrs['o'] = str(request.json['o'])
     attrs['mail'] = str(request.json['mail'])
     attrs['telephoneNumber'] = str(request.json['telephoneNumber'])
     if 'personalTitle' in request.json:
         attrs['personalTitle'] = str(request.json['personalTitle'])
     attrs['objectClass'] = ['top',
-                   'person',
-                   'inetOrgPerson',
-                   'pilotPerson',
-                   'organizationalPerson',
-                   'OpenLDAPperson',
-                   'SIBObject']
-    dn = 'uid={},{}'.format(attrs['uid'],getConfig.user_ou)
+                            'person',
+                            'inetOrgPerson',
+                            'pilotPerson',
+                            'organizationalPerson',
+                            'OpenLDAPperson',
+                            'SIBObject']
+    dn = 'uid={},{}'.format(attrs['uid'], getConfig.user_ou)
     ldif = modlist.addModlist(attrs)
     try:
-        connect = ldap.initialize('ldap://{0}:{1}'.format(getConfig.ldap_server,
+        connect = ldap.initialize('ldap://{0}:{1}'.format(
+                                                    getConfig.ldap_server,
                                                     getConfig.ldap_port))
         connect.bind_s(getConfig.ldapcred, getConfig.ldappass)
-        result = connect.add_s(dn,ldif)
+        connect.add_s(dn, ldif)
     except ldap.LDAPError as e:
         connect.unbind_s()
         return make_response(jsonify({"Erreur LDAP": e.message['desc']}), 400)
     connect.unbind_s()
     return api_getUser(attrs['uid'])
 
+
 @app.route('/api/v1/add/group/', methods=['POST'])
 def api_createGroup():
     if not request.json or \
-       not 'cn' in request.json:
+       'cn' not in request.json:
         abort(400)
     attrs = {}
     attrs['cn'] = str(request.json['cn'])
-    #attrs['displayName'] = attrs['cn']
+#    attrs['displayName'] = attrs['cn']
     if 'description' in request.json:
         attrs['description'] = str(request.json['description'])
     attrs['objectClass'] = ['top', 'posixGroup']
@@ -219,35 +227,37 @@ def api_createGroup():
         attrs['gidNumber'] = str(request.json['gidNumber'])
     else:
         attrs['gidNumber'] = str(getNextgidNumber())
-    dn = 'cn={},{}'.format(attrs['cn'],getConfig.group_ou)
+    dn = 'cn={},{}'.format(attrs['cn'], getConfig.group_ou)
     ldif = modlist.addModlist(attrs)
     try:
-        connect = ldap.initialize('ldap://{0}:{1}'.format(getConfig.ldap_server,
-                                                          getConfig.ldap_port))
-        connect.bind_s(getConfig.ldapcred,getConfig.ldappass)
-        result = connect.add_s(dn,ldif)
+        connect = ldap.initialize('ldap://{0}:{1}'.format(
+                                                   getConfig.ldap_server,
+                                                   getConfig.ldap_port))
+        connect.bind_s(getConfig.ldapcred, getConfig.ldappass)
+        connect.add_s(dn, ldif)
     except ldap.LDAPError as e:
         connect.unbind_s()
         return make_response(jsonify({"Erreur LDAP": e.message['desc']}), 400)
     connect.unbind_s()
     return api_getGroup(attrs['cn'])
 
+
 @app.route('/api/v1/group_edit/<action>/<group>/<username>/', methods=['PUT'])
 def api_updateGroupMember(action, group, username):
-    if action not in ['add','remove']:
-        return make_response(jsonify({"Erreur d'action": \
+    if action not in ['add', 'remove']:
+        return make_response(jsonify({"Erreur d'action":
                                       "L'action doit etre 'add' ou 'remove'"}),
                              400)
-    groupres = api_getGroup(group) 
+    groupres = api_getGroup(group)
     if groupres.status_code != 200:
-        return make_response(jsonify({"Erreur": \
+        return make_response(jsonify({"Erreur":
                                       "Parsing group"}),
                              400)
     usernameres = api_getUser(username)
     if usernameres.status_code != 200:
-        return make_reponse(jsonify({"Erreur": \
+        return make_response(jsonify({"Erreur":
                                      "Parsing username"}),
-                            400)
+                             400)
     userlistres = api_getGroupMembers(group)
     userlist = json.loads(userlistres.get_data())[getConfig.member_attr]
     userlist = [x.encode('UTF8') for x in userlist]
@@ -255,13 +265,14 @@ def api_updateGroupMember(action, group, username):
     newuserlist.append(str(username))
     dn = json.loads(groupres.get_data()).keys()[0]
     ldif = modlist.modifyModlist({getConfig.member_attr: userlist},
-                                 {getConfig.member_attr : newuserlist})
+                                 {getConfig.member_attr: newuserlist})
 
     try:
-        connect = ldap.initialize('ldap://{0}:{1}'.format(getConfig.ldap_server,
-                                                          getConfig.ldap_port))
+        connect = ldap.initialize('ldap://{0}:{1}'.format(
+                                                   getConfig.ldap_server,
+                                                   getConfig.ldap_port))
         connect.bind_s(getConfig.ldapcred, getConfig.ldappass)
-        result = connect.modify_s(dn, ldif)
+        connect.modify_s(dn, ldif)
     except ldap.LDAPError as e:
         connect.unbind_s()
         return make_response(jsonify({"Erreur LDAP": e.message['desc']}), 400)
